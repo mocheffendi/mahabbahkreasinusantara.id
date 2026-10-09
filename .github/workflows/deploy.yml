@@ -87,11 +87,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           envs: DEPLOY_PATH,IMAGE_REF,GHCR_USER,GHCR_TOKEN
-          env:
-            DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/mahabbahkreasinusantara' }}
-            IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            GHCR_USER: ${{ secrets.GHCR_USER }}
-            GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           script: |
             set -e
             mkdir -p "$DEPLOY_PATH"
@@ -116,3 +111,8 @@ jobs:
 
             echo "✅ Deploy selesai: $IMAGE_REF"
             docker compose ps
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/mahabbahkreasinusantara' }}
+          IMAGE_REF: ghcr.io/${{ github.repository }}:latest
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
