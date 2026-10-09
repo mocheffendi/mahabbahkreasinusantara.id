@@ -1,0 +1,118 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Batalkan run lama bila ada push baru ke branch yang sama
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    name: Build, push ke GHCR & deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # ---------- 1) Checkout source ----------
+      - name: 1. Checkout source
+        uses: actions/checkout@v4
+
+      # ---------- 2) Test ----------
+      - name: 2. Test
+        run: bash scripts/test.sh
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # ---------- Login ke GHCR ----------
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+
+      # ---------- 3) docker build  +  4) docker push ke GHCR ----------
+      - name: 3 & 4. Build & push image ke GHCR
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------- 5) SSH ke server ----------
+      # Salin file compose produksi ke server
+      - name: 5a. Salin docker-compose.prod.yml ke server
+        if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          source: "docker-compose.prod.yml"
+          target: ${{ secrets.DEPLOY_PATH || '/opt/mahabbahkreasinusantara' }}
+
+      # SSH ke server: login GHCR (opsional), pull, dan up
+      - name: 5b. Deploy ke server via SSH
+        if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          envs: DEPLOY_PATH,IMAGE_REF,GHCR_USER,GHCR_TOKEN
+          env:
+            DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || '/opt/mahabbahkreasinusantara' }}
+            IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            GHCR_USER: ${{ secrets.GHCR_USER }}
+            GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          script: |
+            set -e
+            mkdir -p "$DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
+
+            # Gunakan compose produksi
+            [ -f docker-compose.prod.yml ] && mv -f docker-compose.prod.yml docker-compose.yml
+
+            # Login GHCR bila token disediakan (untuk package privat)
+            if [ -n "${GHCR_TOKEN:-}" ] && [ -n "${GHCR_USER:-}" ]; then
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            fi
+
+            # 6) docker compose pull
+            IMAGE_REF="$IMAGE_REF" docker compose pull
+
+            # 7) docker compose up -d
+            IMAGE_REF="$IMAGE_REF" docker compose up -d
+
+            # Bersihkan image lama
+            docker image prune -f
+
+            echo "✅ Deploy selesai: $IMAGE_REF"
+            docker compose ps
