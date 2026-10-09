@@ -1,0 +1,10 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mahabbahkreasinusantara-web:latest
+    container_name: mahabbahkreasinusantara
+    ports:
+      - "8080:80"
+    restart: unless-stopped
