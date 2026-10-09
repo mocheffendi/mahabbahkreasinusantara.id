@@ -14,13 +14,14 @@ Kontak WhatsApp: **+62 822-2832-9788** (`https://wa.me/6282228329788`)
 mahabbahkreasinusantara.id/
 ├── Dockerfile                    # Image Nginx + konten statis
 ├── docker-compose.yml            # Lokal: build & jalankan pada port 8080
-├── docker-compose.prod.yml       # Server: pull image dari GHCR (tanpa build)
+├── docker-compose.prod.yml       # Server: jalankan image (tanpa build)
 ├── nginx.conf                    # Konfigurasi gzip, cache, keamanan
 ├── .dockerignore / .gitignore / .gitattributes
 ├── .github/workflows/deploy.yml  # CI/CD: test → build → push GHCR → deploy via SSH
 ├── scripts/
 │   ├── prepare-images.ps1        # Salin + optimasi gambar & buat manifest
-│   └── test.sh                   # Pengujian ringan (dipakai CI)
+│   ├── test.sh                   # Pengujian ringan (dipakai CI)
+│   └── deploy.ps1                # Deploy dari PC: build → kirim image → up (tanpa registry)
 └── public/
     ├── index.html           # Halaman utama
     ├── css/style.css
@@ -126,10 +127,63 @@ Buka **GitHub → Settings → Secrets and variables → Actions**.
 
 ```bash
 cd /opt/mahabbahkreasinusantara
-cp docker-compose.prod.yml docker-compose.yml
-IMAGE_REF=ghcr.io/mocheffendi/mahabbahkreasinusantara.id:latest docker compose pull
-IMAGE_REF=ghcr.io/mocheffendi/mahabbahkreasinusantara.id:latest docker compose up -d
+docker compose up -d        # memakai image yang sudah dimuat (hasil docker load)
+docker compose ps
 ```
+
+---
+
+## Deploy dari PC (tanpa GitHub Actions)
+
+Alternatif bila GitHub Actions tidak bisa dipakai (mis. billing akun terkunci).
+Satu perintah dari komputer Anda: **test → build → kirim image → `docker load` → `docker compose up -d`**.
+Tanpa registry/GHCR — image dibangun lokal, dikirim via `scp`, lalu dimuat di server.
+
+### Prasyarat
+
+- Docker Desktop berjalan di PC.
+- Login SSH tanpa password ke server sudah bisa (public key terpasang):
+  ```powershell
+  ssh -i "$env:USERPROFILE\.ssh\id_mahabbah" root@202.10.41.233 "docker version"
+  ```
+
+### Cara pakai
+
+```powershell
+.\scripts\deploy.ps1
+```
+
+Dengan parameter lengkap:
+
+```powershell
+.\scripts\deploy.ps1 `
+  -Server     root@202.10.41.233 `
+  -KeyFile    "$env:USERPROFILE\.ssh\id_mahabbah" `
+  -SshPort    22 `
+  -Image      mahabbahkreasinusantara `
+  -DeployPath /opt/mahabbahkreasinusantara `
+  -WebPort    8080
+```
+
+| Parameter | Default | Keterangan |
+|-----------|---------|------------|
+| `-Server` | `root@202.10.41.233` | Tujuan SSH (`user@host`) |
+| `-KeyFile` | `$env:USERPROFILE\.ssh\id_mahabbah` | Private key SSH |
+| `-SshPort` | `22` | Port SSH |
+| `-Image` | `mahabbahkreasinusantara` | Nama image lokal |
+| `-DeployPath` | `/opt/mahabbahkreasinusantara` | Folder di server |
+| `-WebPort` | `8080` | Port publik container |
+| `-SkipTest` | – | Lewati `scripts/test.sh` |
+| `-KeepTar` | – | Simpan file `deploy-image.tar` hasil `docker save` |
+
+### Yang dijalankan skrip
+
+1. Cek Docker aktif, key SSH ada, dan koneksi ke server berhasil.
+2. **Test** — `scripts/test.sh` dijalankan di container Alpine.
+3. **`docker build`** — tag `:latest` + `:<short-sha>`.
+4. **`docker save`** → `scp` → **`docker load`** di server.
+5. Salin `docker-compose.prod.yml` → `$DeployPath/docker-compose.yml`.
+6. **`docker compose up -d --force-recreate`** + tampilkan `docker compose ps`.
 
 ---
 

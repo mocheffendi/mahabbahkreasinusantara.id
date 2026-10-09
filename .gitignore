@@ -11,3 +11,7 @@ desktop.ini
 # Local env
 .env
 .env.local
+
+# Deploy artifact
+deploy-image.tar
+*.tar

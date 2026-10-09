@@ -1,10 +1,10 @@
 # docker-compose.prod.yml
-# Dipakai di server produksi. Hanya menarik image dari GHCR (tanpa build).
-# Variabel IMAGE_REF dapat di-override dari environment, mis.:
-#   IMAGE_REF=ghcr.io/mocheffendi/mahabbahkreasinusantara.id:sha-abc123 docker compose up -d
+# Compose untuk server: hanya menjalankan image (tanpa build, tanpa registry).
+# Nama image dapat di-override lewat environment, mis.:
+#   IMAGE_REF=mahabbahkreasinusantara:20260101 docker compose up -d
 services:
   web:
-    image: ${IMAGE_REF:-ghcr.io/mocheffendi/mahabbahkreasinusantara.id:latest}
+    image: ${IMAGE_REF:-mahabbahkreasinusantara:latest}
     container_name: mahabbahkreasinusantara
     ports:
       - "${WEB_PORT:-8080}:80"
