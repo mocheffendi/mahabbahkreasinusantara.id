@@ -138,7 +138,7 @@ try {
 
     # ---------- 8. Load & jalankan ----------
     Write-Section 'Load image & jalankan container di server'
-    $remoteCmd = "set -e; cd '$DeployPath'; docker load -i $RemoteTar; rm -f $RemoteTar; IMAGE_REF='$tagLatest' WEB_PORT='$WebPort' docker compose up -d --force-recreate; docker image prune -f; echo '----- status -----'; docker compose ps"
+    $remoteCmd = "set -e; cd '$DeployPath'; docker load -i $RemoteTar; rm -f $RemoteTar; if docker compose version >/dev/null 2>&1; then DC='docker compose'; else DC='docker-compose'; fi; IMAGE_REF='$tagLatest' WEB_PORT='$WebPort' $DC up -d --force-recreate; docker image prune -f; echo '----- status -----'; $DC ps"
     & ssh @sshCommon $Server $remoteCmd
     if ($LASTEXITCODE -ne 0) { throw 'Deploy di server gagal.' }
 
