@@ -7,5 +7,5 @@ services:
     image: ${IMAGE_REF:-mahabbahkreasinusantara:latest}
     container_name: mahabbahkreasinusantara
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "${WEB_PORT:-80}:80"
     restart: unless-stopped

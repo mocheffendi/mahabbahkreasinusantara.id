@@ -162,7 +162,7 @@ Dengan parameter lengkap:
   -SshPort    22 `
   -Image      mahabbahkreasinusantara `
   -DeployPath /opt/mahabbahkreasinusantara `
-  -WebPort    8080
+  -WebPort    80
 ```
 
 | Parameter | Default | Keterangan |
@@ -172,9 +172,15 @@ Dengan parameter lengkap:
 | `-SshPort` | `22` | Port SSH |
 | `-Image` | `mahabbahkreasinusantara` | Nama image lokal |
 | `-DeployPath` | `/opt/mahabbahkreasinusantara` | Folder di server |
-| `-WebPort` | `8080` | Port publik container |
+| `-WebPort` | `80` | Port publik container |
 | `-SkipTest` | – | Lewati `scripts/test.sh` |
 | `-KeepTar` | – | Simpan file `deploy-image.tar` hasil `docker save` |
+
+> **Domain & Cloudflare:** origin sekarang di **port 80 (HTTP)**. Bila A record di-proxy
+> Cloudflare (awan oranye), set **SSL/TLS → Overview → Flexible** agar Cloudflare
+> menyambung ke origin via HTTP port 80. Kalau proxy dimatikan (DNS only), `http://domain`
+> langsung jalan. Untuk HTTPS penuh di origin dibutuhkan reverse proxy (Caddy/Nginx) —
+> tidak termasuk pada setup ini.
 
 ### Yang dijalankan skrip
 

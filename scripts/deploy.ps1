@@ -41,7 +41,7 @@ param(
     [int]    $SshPort    = 22,
     [string] $Image      = "mahabbahkreasinusantara",
     [string] $DeployPath = "/opt/mahabbahkreasinusantara",
-    [string] $WebPort    = "8080",
+    [string] $WebPort    = "80",
     [switch] $SkipTest,
     [switch] $KeepTar
 )
